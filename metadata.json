@@ -1,0 +1,6 @@
+{
+  "name": "Revox - Certified Refurbished Technology",
+  "description": "Premium certified refurbished smartphones, laptops, audio gear and accessories in Saudi Arabia. Always free shipping across KSA, 12-month warranty, and local payment verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

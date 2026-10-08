@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #F8FAFC;
+    --bg-surface: #FFFFFF;
+    --surface-subtle: #F1F5F9;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --neon-cyan-start: #00C6FF;
+    --neon-cyan-end: #0072FF;
+    --emerald-mint: #10B981;
+    --gold-accent: #D97706;
+  }
+
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-display {
+    font-family: 'Poppins', 'Inter', sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Micro-interaction & Keyframe animations */
+@keyframes hapticPress {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pulseCyanGlow {
+  0%, 100% {
+    box-shadow: 0 4px 18px rgba(0, 114, 255, 0.35), 0 0 10px rgba(0, 198, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 6px 26px rgba(0, 114, 255, 0.55), 0 0 16px rgba(0, 198, 255, 0.4);
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Glassmorphism & Light Theme Surface Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+}
+
+.glass-panel-glow {
+  background: #FFFFFF;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.15);
+}
+
+/* High-Conversion Glowing CTA Buttons with Haptic Tap */
+.btn-electric-cyan {
+  background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%);
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(0, 114, 255, 0.35);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.75rem;
+}
+.btn-electric-cyan:hover {
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 24px rgba(0, 114, 255, 0.5), 0 0 12px rgba(0, 198, 255, 0.4);
+}
+.btn-electric-cyan:active {
+  transform: scale(0.93);
+}
+
+/* Admin Panel Typography & Stylist Utilities */
+.admin-text-display {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.admin-text-subhead {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+.admin-text-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.admin-text-mono-val {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-midnight-dark {
+  background: #0F172A;
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.75rem;
+}
+.btn-midnight-dark:hover {
+  background: #1E293B;
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.3);
+}
+.btn-midnight-dark:active {
+  transform: scale(0.93);
+}
+
+.btn-luxury-gold {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.75rem;
+}
+.btn-luxury-gold:hover {
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.45);
+}
+.btn-luxury-gold:active {
+  transform: scale(0.93);
+}
+
+.btn-frosted-interactive {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #0F172A;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.btn-frosted-interactive:hover {
+  background: #F8FAFC;
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.15);
+  transform: translateY(-1px);
+}
+.btn-frosted-interactive:active {
+  transform: scale(0.94);
+}
+
+/* Custom sleek scrollbar for light theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0284C7;
+}
+
+/* Printable invoice stylesheet */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-invoice, #printable-invoice * {
+    visibility: visible;
+  }
+  #printable-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white !important;
+    color: black !important;
+  }
+}
+
