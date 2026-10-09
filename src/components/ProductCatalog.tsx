@@ -175,6 +175,9 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   // Filtered and Sorted Products
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
+      // Exclude soft-deleted products in Trash
+      if (item.isDeleted) return false;
+
       // Category filter
       const matchCategory =
         selectedCategory === 'all' ||

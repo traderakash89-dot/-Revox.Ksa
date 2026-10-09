@@ -275,12 +275,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSubmitOrder} autoComplete="off" className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+        <form onSubmit={handleSubmitOrder} autoComplete="off" className="p-4 sm:p-6 max-h-[75vh] overflow-y-auto overflow-x-hidden space-y-6 w-full box-border">
           
           {errorMsg && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 w-full box-border">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
+              <span className="break-words">{errorMsg}</span>
             </div>
           )}
 
@@ -477,38 +477,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
 
           {/* Section 3: Summary & Order Button */}
-          <div className="pt-4 border-t border-slate-100 space-y-4 text-xs">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
-              <div className="flex justify-between text-slate-600">
-                <span>Items Subtotal</span>
-                <span className="font-mono text-slate-900 font-semibold">{subtotal.toLocaleString()} SAR</span>
-              </div>
-              <div className="flex justify-between text-emerald-700 font-semibold">
-                <span className="flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5 text-emerald-600" /> Shipping Fee Across Saudi Arabia
+          <div className="pt-4 border-t border-slate-100 space-y-4 text-xs w-full box-border">
+            <div className="bg-slate-50 rounded-xl p-3.5 sm:p-4 border border-slate-200 space-y-2.5 w-full box-border">
+              <div className="flex justify-between items-center text-slate-600 w-full gap-2">
+                <span className="shrink-0 font-medium">Items Subtotal</span>
+                <span className="font-mono text-slate-900 font-semibold whitespace-nowrap tabular-nums text-right">
+                  {subtotal.toLocaleString()} SAR
                 </span>
-                <span className="font-mono font-bold">FREE (0 SAR)</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-200">
-                <span>Total Order Value</span>
-                <span className="font-mono text-[#0F172A] text-base font-black">{total.toLocaleString()} SAR</span>
+              <div className="flex justify-between items-center text-emerald-700 font-semibold w-full gap-2">
+                <span className="flex items-center gap-1 truncate">
+                  <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">Shipping Fee (Saudi Arabia)</span>
+                </span>
+                <span className="font-mono font-bold uppercase whitespace-nowrap shrink-0 text-right">
+                  FREE (0 SAR)
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-bold text-slate-900 pt-2 border-t border-slate-200 w-full gap-2">
+                <span className="shrink-0">Total Order Value</span>
+                <span className="font-mono text-[#0F172A] text-base font-black whitespace-nowrap tabular-nums text-right">
+                  {total.toLocaleString()} SAR
+                </span>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#00C6FF] via-[#0072FF] to-[#0051C6] hover:from-[#0072FF] hover:to-[#00C6FF] text-white font-extrabold text-sm tracking-wide shadow-[0_4px_20px_rgba(0,114,255,0.35)] hover:shadow-[0_6px_28px_rgba(0,114,255,0.5)] hover:scale-[1.01] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 sm:py-4 px-4 sm:px-6 rounded-xl bg-gradient-to-r from-[#00C6FF] via-[#0072FF] to-[#0051C6] hover:from-[#0072FF] hover:to-[#00C6FF] text-white font-extrabold text-xs sm:text-sm tracking-wide shadow-[0_4px_20px_rgba(0,114,255,0.35)] hover:shadow-[0_6px_28px_rgba(0,114,255,0.5)] hover:scale-[1.01] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 box-border"
             >
               {isSubmitting ? (
                 <span>Placing Your Order...</span>
               ) : (
                 <>
-                  <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                  <span>
+                  <CheckCircle2 className="w-5 h-5 stroke-[2.5] shrink-0" />
+                  <span className="whitespace-nowrap">
                     Confirm & Place Order ({total.toLocaleString()} SAR)
                   </span>
-                  <ArrowRight className="w-4 h-4 ml-1 stroke-[3]" />
+                  <ArrowRight className="w-4 h-4 ml-1 stroke-[3] shrink-0" />
                 </>
               )}
             </button>

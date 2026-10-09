@@ -60,6 +60,8 @@ export interface Product {
   specs: Record<string, string>;
   variants: ProductVariant[];
   featured?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface CustomerAddress {
@@ -142,6 +144,7 @@ export interface CMSConfig {
   freeShippingNote: string;
   supportPhone: string;
   supportEmail: string;
+  storeAddress?: string;
   tiktokUrl?: string;
   alRajhiDetails: {
     accountName: string;

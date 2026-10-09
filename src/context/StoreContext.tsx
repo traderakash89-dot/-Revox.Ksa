@@ -34,6 +34,8 @@ interface StoreContextType {
   uploadOrderReceipt: (orderId: string, receiptImage: string, transactionReference: string) => Promise<void>;
   saveProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
+  restoreProduct: (productId: string) => Promise<void>;
+  permanentDeleteProduct: (productId: string) => Promise<void>;
   clearAllProducts: () => Promise<void>;
   refetchProducts: () => Promise<void>;
   updateCMS: (newCMS: CMSConfig) => Promise<void>;
@@ -96,6 +98,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return {
           ...INITIAL_CMS,
           ...parsed,
+          storeAddress: parsed.storeAddress || INITIAL_CMS.storeAddress,
           tiktokUrl: parsed.tiktokUrl || INITIAL_CMS.tiktokUrl,
         };
       }
@@ -633,16 +636,56 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteProduct = async (productId: string): Promise<void> => {
-    // 1. Optimistic Local Update
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    // 1. Optimistic Local Update: Mark product as soft-deleted
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, isDeleted: true, deletedAt: new Date().toISOString() }
+          : p
+      )
+    );
 
-    // 2. Persist Deletion to live backend database
+    // 2. Persist Soft Deletion to live backend database (moves to Trash / Recycle Bin)
     try {
       await fetch(`/api/products/${encodeURIComponent(productId)}`, {
         method: 'DELETE',
       });
     } catch (err) {
-      console.error('Failed to delete product from database:', err);
+      console.error('Failed to soft delete product to Trash:', err);
+    }
+  };
+
+  const restoreProduct = async (productId: string): Promise<void> => {
+    // 1. Optimistic Local Update: restore product
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, isDeleted: false, deletedAt: undefined }
+          : p
+      )
+    );
+
+    // 2. Persist Restoration to live backend database
+    try {
+      await fetch(`/api/products/${encodeURIComponent(productId)}/restore`, {
+        method: 'POST',
+      });
+    } catch (err) {
+      console.error('Failed to restore product from Trash:', err);
+    }
+  };
+
+  const permanentDeleteProduct = async (productId: string): Promise<void> => {
+    // 1. Optimistic Local Update: completely remove
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+
+    // 2. Persist Permanent Deletion to live backend database
+    try {
+      await fetch(`/api/products/${encodeURIComponent(productId)}/permanent`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to permanently delete product from database:', err);
     }
   };
 
@@ -695,6 +738,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         uploadOrderReceipt,
         saveProduct,
         deleteProduct,
+        restoreProduct,
+        permanentDeleteProduct,
         clearAllProducts,
         refetchProducts,
         updateCMS,

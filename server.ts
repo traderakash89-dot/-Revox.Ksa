@@ -193,10 +193,15 @@ app.get('/api/sync-status', (_req: Request, res: Response) => {
 // REST API ENDPOINTS
 // ==========================================
 
-// 1. Products API (Persistent CRUD with Real-time Broadcasting)
+// 1. Products API (Persistent CRUD with Real-time Broadcasting and Trash / Recycle Bin Support)
 app.get('/api/products', (req: Request, res: Response) => {
-  const { category, search } = req.query;
+  const { category, search, includeTrash } = req.query;
   let result = [...products];
+
+  // If includeTrash is not requested, filter out soft-deleted products
+  if (includeTrash !== 'true') {
+    result = result.filter((p) => !p.isDeleted);
+  }
 
   if (category && category !== 'all') {
     result = result.filter((p) => p.category.toLowerCase() === String(category).toLowerCase());
@@ -215,6 +220,12 @@ app.get('/api/products', (req: Request, res: Response) => {
   res.json({ success: true, count: result.length, data: result, timestamp: Date.now() });
 });
 
+// Trash products endpoint: returns all products currently in the Recycle Bin
+app.get('/api/products-trash', (_req: Request, res: Response) => {
+  const trashItems = products.filter((p) => p.isDeleted);
+  res.json({ success: true, count: trashItems.length, data: trashItems, timestamp: Date.now() });
+});
+
 app.get('/api/products/:id', (req: Request, res: Response) => {
   const product = products.find((p) => p.id === req.params.id);
   if (!product) {
@@ -228,6 +239,7 @@ app.post('/api/products', (req: Request, res: Response) => {
   const newProduct: Product = {
     ...req.body,
     id: req.body.id || `rvx-prod-${Date.now()}`,
+    isDeleted: false,
   };
   products.unshift(newProduct);
   saveProductsToDisk(products);
@@ -249,6 +261,7 @@ app.put('/api/products/:id', (req: Request, res: Response) => {
     const newProduct: Product = {
       ...req.body,
       id: req.params.id,
+      isDeleted: req.body.isDeleted ?? false,
     };
     products.unshift(newProduct);
     saveProductsToDisk(products);
@@ -274,28 +287,94 @@ app.put('/api/products/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: products[index] });
 });
 
-// Delete specific product and persist permanently
+// Soft Delete product -> Move to Trash / Recycle Bin
 app.delete('/api/products/:id', (req: Request, res: Response) => {
   const index = products.findIndex((p) => p.id === req.params.id);
   if (index === -1) {
     return res.status(404).json({ success: false, message: 'Product not found' });
   }
-  const deleted = products.splice(index, 1)[0];
+  
+  // Soft delete: mark as deleted with timestamp
+  products[index] = {
+    ...products[index],
+    isDeleted: true,
+    deletedAt: new Date().toISOString(),
+  };
+
   saveProductsToDisk(products);
   broadcastSync('products_updated', {
     type: 'products_updated',
     products,
-    action: 'deleted',
+    action: 'soft_deleted',
     productId: req.params.id,
     timestamp: Date.now(),
   });
-  res.json({ success: true, message: 'Product deleted permanently from database', data: deleted });
+  res.json({
+    success: true,
+    message: 'Product moved to Trash / Recycle Bin',
+    data: products[index],
+  });
 });
 
-// Bulk Clear / Delete all products
-app.delete('/api/products', (_req: Request, res: Response) => {
-  const count = products.length;
-  products = [];
+// Restore product from Trash back to active inventory
+app.post('/api/products/:id/restore', (req: Request, res: Response) => {
+  const index = products.findIndex((p) => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  products[index] = {
+    ...products[index],
+    isDeleted: false,
+    deletedAt: undefined,
+  };
+
+  saveProductsToDisk(products);
+  broadcastSync('products_updated', {
+    type: 'products_updated',
+    products,
+    action: 'restored',
+    productId: req.params.id,
+    timestamp: Date.now(),
+  });
+  res.json({
+    success: true,
+    message: 'Product restored successfully to active inventory',
+    data: products[index],
+  });
+});
+
+// Permanent Delete product from database forever
+app.delete('/api/products/:id/permanent', (req: Request, res: Response) => {
+  const index = products.findIndex((p) => p.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  const permanentlyDeleted = products.splice(index, 1)[0];
+  saveProductsToDisk(products);
+  broadcastSync('products_updated', {
+    type: 'products_updated',
+    products,
+    action: 'permanently_deleted',
+    productId: req.params.id,
+    timestamp: Date.now(),
+  });
+  res.json({
+    success: true,
+    message: 'Product permanently removed from database',
+    data: permanentlyDeleted,
+  });
+});
+
+// Bulk Clear / Delete all products permanently or empty trash
+app.delete('/api/products', (req: Request, res: Response) => {
+  const { mode } = req.query; // 'trash_only' or all
+  if (mode === 'trash_only') {
+    products = products.filter((p) => !p.isDeleted);
+  } else {
+    products = [];
+  }
   saveProductsToDisk(products);
   broadcastSync('products_updated', {
     type: 'products_updated',
@@ -303,7 +382,7 @@ app.delete('/api/products', (_req: Request, res: Response) => {
     action: 'cleared_all',
     timestamp: Date.now(),
   });
-  res.json({ success: true, message: `All ${count} products cleared from persistent database.`, count });
+  res.json({ success: true, message: 'Products database updated', count: products.length });
 });
 
 // 2. Orders API (with Delete and Persistent Disk Storage)

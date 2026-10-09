@@ -12,6 +12,9 @@ import {
   Check,
   Edit,
   Trash2,
+  Undo2,
+  RotateCcw,
+  AlertOctagon,
   Plus,
   Printer,
   X,
@@ -70,6 +73,8 @@ interface AdminPanelProps {
   onDeleteOrder: (orderId: string) => void;
   onSaveProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
+  onRestoreProduct?: (productId: string) => void;
+  onPermanentDeleteProduct?: (productId: string) => void;
   onUpdateCMS: (newCms: CMSConfig) => void;
   onClose: () => void;
 }
@@ -84,6 +89,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteOrder,
   onSaveProduct,
   onDeleteProduct,
+  onRestoreProduct,
+  onPermanentDeleteProduct,
   onUpdateCMS,
   onClose,
 }) => {
@@ -124,8 +131,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   });
 
-  // Tabs: 'orders' | 'products' | 'tiktok_ads' | 'analytics' | 'cms'
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'tiktok_ads' | 'analytics' | 'cms'>('orders');
+  // Tabs: 'orders' | 'products' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'>('orders');
   const [isMenuDropdownOpen, setIsMenuDropdownOpen] = useState(false);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -259,9 +266,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return matchFilter && matchSearch;
   });
 
-  // Filtered products for Product Management Table
+  // Trash / Soft-deleted products count and list
+  const trashProducts = useMemo(() => {
+    return products.filter((p) => p.isDeleted);
+  }, [products]);
+
+  // Active (non-deleted) products
+  const activeProducts = useMemo(() => {
+    return products.filter((p) => !p.isDeleted);
+  }, [products]);
+
+  // Filtered products for Product Management Table (strictly active products)
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    return activeProducts.filter((p) => {
       // Category filter
       const matchCategory =
         productCategoryFilter === 'all' ||
@@ -286,13 +303,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       return matchCategory && matchStock && matchSearch;
     });
-  }, [products, productCategoryFilter, productStockFilter, productSearch]);
+  }, [activeProducts, productCategoryFilter, productStockFilter, productSearch]);
 
-  // Product inventory KPI counts
-  const totalCatalogCount = products.length;
-  const totalStockUnits = products.reduce((acc, p) => acc + (p.stock || 0), 0);
-  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= 3).length;
-  const outOfStockCount = products.filter((p) => p.stock <= 0).length;
+  // Product inventory KPI counts (based on active products)
+  const totalCatalogCount = activeProducts.length;
+  const totalStockUnits = activeProducts.reduce((acc, p) => acc + (p.stock || 0), 0);
+  const lowStockCount = activeProducts.filter((p) => p.stock > 0 && p.stock <= 3).length;
+  const outOfStockCount = activeProducts.filter((p) => p.stock <= 0).length;
 
   // Navigation tabs definition for the corner hero dropdown menu
   const navTabs = useMemo(() => [
@@ -312,10 +329,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       label: 'Products & Inventory',
       shortLabel: 'Products',
       icon: Layers,
-      count: products.length,
+      count: activeProducts.length,
       color: 'text-cyan-400',
       badgeBg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
       description: 'Catalog, stock counts, warranties & IMEI numbers',
+    },
+    {
+      id: 'trash' as const,
+      label: 'Trash / Recycle Bin',
+      shortLabel: 'Trash',
+      icon: Trash2,
+      count: trashProducts.length,
+      color: 'text-red-400',
+      badgeBg: 'bg-red-500/20 text-red-300 border-red-500/40',
+      description: 'Recover soft-deleted products or permanently delete',
+      alert: trashProducts.length > 0 ? `${trashProducts.length} in trash` : undefined,
     },
     {
       id: 'tiktok_ads' as const,
@@ -345,7 +373,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       badgeBg: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
       description: 'Al Rajhi IBAN, STC Pay, barcodes & support info',
     },
-  ], [orders.length, products.length, pendingApprovalsCount]);
+  ], [orders.length, activeProducts.length, trashProducts.length, pendingApprovalsCount]);
 
   const currentTabItem = useMemo(() => {
     return navTabs.find((t) => t.id === activeTab) || navTabs[0];
@@ -1581,12 +1609,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setActiveTab('trash')}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all relative"
+                  title="View deleted products in Trash / Recycle Bin"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                  <span>Trash Bin</span>
+                  {trashProducts.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                      {trashProducts.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleClearAllInventory}
                   className="px-3.5 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
                   title="Remove all mock/test inventory without touching banner"
                 >
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                  <span>Clear All Inventory</span>
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span>Clear All</span>
                 </button>
 
                 <button
@@ -2060,16 +2103,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 <span>Update</span>
                               </button>
 
-                              {/* Delete Button */}
+                              {/* Soft Delete to Trash Button */}
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm(`Are you sure you want to permanently delete "${p.name}" (ID: ${p.id})? This will immediately remove it from the customer storefront and database.`)) {
+                                  if (confirm(`Move "${p.name}" to Trash / Recycle Bin?\n\nThis will soft-delete the product so it is hidden from the storefront, but you can restore it anytime from the Trash tab.`)) {
                                     onDeleteProduct(p.id);
+                                    setBulkActionSuccessMsg(`"${p.name}" moved to Trash. You can restore it anytime.`);
+                                    setTimeout(() => setBulkActionSuccessMsg(''), 4000);
                                   }
                                 }}
                                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-900/70 border border-slate-700 text-slate-400 hover:text-red-300 transition-colors cursor-pointer inline-flex items-center"
-                                title="Delete Product from Inventory"
+                                title="Move Product to Trash / Recycle Bin"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -2087,9 +2132,254 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
+        {/* TAB: TRASH / RECYCLE BIN MANAGEMENT UI */}
+        {activeTab === 'trash' && (
+          <div className="space-y-4">
+            {/* Header & Controls */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#111723] p-4 rounded-xl border border-red-900/40">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white font-['Poppins'] flex items-center gap-2">
+                      Trash / Recycle Bin
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/30">
+                        {trashProducts.length} Item{trashProducts.length === 1 ? '' : 's'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Soft-deleted products are safely stored here and hidden from your storefront. Restore them back to active inventory with 1 click, or delete them permanently.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('products')}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>Back to Active Inventory</span>
+                </button>
+
+                {trashProducts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm(`Empty Recycle Bin?\n\nThis will permanently delete all ${trashProducts.length} items from the database forever. This action cannot be undone.`)) {
+                        for (const p of trashProducts) {
+                          if (onPermanentDeleteProduct) {
+                            onPermanentDeleteProduct(p.id);
+                          } else {
+                            try {
+                              await fetch(`/api/products/${encodeURIComponent(p.id)}/permanent`, { method: 'DELETE' });
+                            } catch {}
+                          }
+                        }
+                        setBulkActionSuccessMsg('Trash / Recycle Bin emptied completely.');
+                        setTimeout(() => setBulkActionSuccessMsg(''), 4000);
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <span>Empty Trash</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Notification alert banner */}
+            {bulkActionSuccessMsg && (
+              <div className="p-3 bg-emerald-950/80 border border-emerald-500 rounded-xl text-xs text-emerald-200 flex items-center justify-between animate-in fade-in shadow-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">{bulkActionSuccessMsg}</span>
+                </div>
+                <button
+                  onClick={() => setBulkActionSuccessMsg('')}
+                  className="text-emerald-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Trash Products Table */}
+            <div className="bg-[#111723] border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0D1420] text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+                    <tr>
+                      <th className="py-3 px-4">Product Details</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Price</th>
+                      <th className="py-3 px-4">Deleted At</th>
+                      <th className="py-3 px-4">Condition & Stock</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {trashProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-16 text-center">
+                          <div className="max-w-sm mx-auto flex flex-col items-center justify-center space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500">
+                              <Trash2 className="w-6 h-6" />
+                            </div>
+                            <h4 className="text-sm font-bold text-slate-300">Recycle Bin is Empty</h4>
+                            <p className="text-xs text-slate-500 text-center">
+                              There are no deleted products in the Trash. When you delete a product from active inventory, it will safely appear here for restoration.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('products')}
+                              className="mt-2 px-3.5 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600 border border-cyan-500/40 text-cyan-300 hover:text-white text-xs font-semibold cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>Go to Active Products</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      trashProducts.map((p) => {
+                        const formattedDeletedAt = p.deletedAt
+                          ? new Date(p.deletedAt).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Recently';
+
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-800/40 transition-colors group">
+                            {/* Product Info */}
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden shrink-0 relative">
+                                  {p.image ? (
+                                    <img
+                                      src={p.image}
+                                      alt={p.name}
+                                      className="w-full h-full object-cover grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                      <ImageIcon className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                  <span className="absolute bottom-0 right-0 px-1 py-0.2 rounded-tl bg-red-900/90 text-[8px] font-bold text-red-200">
+                                    TRASH
+                                  </span>
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="font-bold text-slate-200 group-hover:text-white block line-clamp-1">
+                                    {p.name}
+                                  </span>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                                    <span className="text-slate-500">ID: {p.id}</span>
+                                    {p.serialNumber && (
+                                      <>
+                                        <span className="text-slate-600">·</span>
+                                        <span className="text-amber-400">SN: {p.serialNumber}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Category */}
+                            <td className="py-3.5 px-4">
+                              <span className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                {p.category}
+                              </span>
+                            </td>
+
+                            {/* Price */}
+                            <td className="py-3.5 px-4 font-mono font-bold text-amber-300">
+                              {p.price.toLocaleString()} SAR
+                            </td>
+
+                            {/* Deleted At */}
+                            <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                              <div className="flex items-center gap-1.5 text-red-400">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>{formattedDeletedAt}</span>
+                              </div>
+                            </td>
+
+                            {/* Condition & Stock */}
+                            <td className="py-3.5 px-4 text-[11px]">
+                              <span className="text-slate-300 block">{p.condition || 'Inspected'}</span>
+                              <span className="text-slate-500 text-[10px] font-mono">Stock was: {p.stock} units</span>
+                            </td>
+
+                            {/* Action Buttons: Restore & Delete Permanently */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                {/* 'Restore' Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (onRestoreProduct) {
+                                      onRestoreProduct(p.id);
+                                    } else {
+                                      fetch(`/api/products/${encodeURIComponent(p.id)}/restore`, { method: 'POST' });
+                                    }
+                                    setBulkActionSuccessMsg(`"${p.name}" restored successfully to active inventory!`);
+                                    setTimeout(() => setBulkActionSuccessMsg(''), 4000);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500/40 text-emerald-300 hover:text-slate-950 font-bold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                  title="Restore product to active inventory"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  <span>Restore</span>
+                                </button>
+
+                                {/* 'Delete Permanently' Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`Permanently Delete "${p.name}"?\n\nThis will completely remove this product from the database forever. This action cannot be undone.`)) {
+                                      if (onPermanentDeleteProduct) {
+                                        onPermanentDeleteProduct(p.id);
+                                      } else {
+                                        fetch(`/api/products/${encodeURIComponent(p.id)}/permanent`, { method: 'DELETE' });
+                                      }
+                                      setBulkActionSuccessMsg(`"${p.name}" permanently deleted from database.`);
+                                      setTimeout(() => setBulkActionSuccessMsg(''), 4000);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white font-bold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                  title="Delete product permanently forever"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                  <span>Delete Permanently</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 3: TIKTOK & SOCIAL ADS MANAGER (VIDEO/IMAGE SLIDESHOWS & AD WORKFLOWS) */}
         {activeTab === 'tiktok_ads' && (
-          <TikTokAdsManager products={products} />
+          <TikTokAdsManager products={activeProducts} />
         )}
 
         {/* TAB 4: PER-DAY SALES & ORDER TRACKING ANALYTICS SECTION */}
@@ -2205,7 +2495,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-slate-400 mb-1 font-medium">WhatsApp Support Phone</label>
                     <input
@@ -2223,6 +2513,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       value={cmsForm.supportEmail}
                       onChange={(e) => setCmsForm({ ...cmsForm, supportEmail: e.target.value })}
                       className="w-full bg-[#090D14] border border-slate-800 rounded-lg px-3.5 py-2 text-slate-100 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-medium">Store Address / Dispatch Hub</label>
+                    <input
+                      type="text"
+                      value={cmsForm.storeAddress || ''}
+                      placeholder="e.g. KSA, Dammam, Ash Shulah"
+                      onChange={(e) => setCmsForm({ ...cmsForm, storeAddress: e.target.value })}
+                      className="w-full bg-[#090D14] border border-slate-800 rounded-lg px-3.5 py-2 text-slate-100"
                     />
                   </div>
                 </div>

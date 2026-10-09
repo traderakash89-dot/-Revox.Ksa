@@ -55,6 +55,8 @@ function RevoxAppContent() {
     uploadOrderReceipt,
     saveProduct,
     deleteProduct,
+    restoreProduct,
+    permanentDeleteProduct,
     updateCMS,
     dismissNotification,
   } = useStore();
@@ -488,7 +490,7 @@ function RevoxAppContent() {
                   </li>
                   <li className="flex items-center gap-1.5 truncate">
                     <MapPin className="w-3 h-3 text-cyan-600 shrink-0" />
-                    <span className="truncate">Riyadh Hub, KSA</span>
+                    <span className="truncate">{cms.storeAddress || 'KSA, Dammam, Ash Shulah'}</span>
                   </li>
                   <li className="flex items-center gap-1.5 truncate pt-0.5">
                     <a
@@ -683,6 +685,8 @@ function RevoxAppContent() {
           onDeleteOrder={deleteOrder}
           onSaveProduct={saveProduct}
           onDeleteProduct={deleteProduct}
+          onRestoreProduct={restoreProduct}
+          onPermanentDeleteProduct={permanentDeleteProduct}
           onUpdateCMS={updateCMS}
           onClose={() => setIsAdminOpen(false)}
         />

@@ -7,6 +7,7 @@ export const INITIAL_CMS: CMSConfig = {
   freeShippingNote: 'Always Free Shipping on Advance Payment! (0 SAR Delivery)',
   supportPhone: '+966508520173',
   supportEmail: 'Support.revox@gmail.com',
+  storeAddress: 'KSA, Dammam, Ash Shulah',
   tiktokUrl: 'https://www.tiktok.com/@revox.ksa.com',
   alRajhiDetails: {
     accountName: 'MD AKASH MIAH',
