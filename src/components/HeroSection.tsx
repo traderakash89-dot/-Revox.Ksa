@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Truck,
   ShieldCheck,
@@ -18,10 +18,12 @@ import {
   Clock,
   Award,
 } from 'lucide-react';
-import { CMSConfig } from '../types';
+import { CMSConfig, Product } from '../types';
 
 interface HeroSectionProps {
   cms: CMSConfig;
+  products?: Product[];
+  onSelectProduct?: (product: Product) => void;
   onExplore: () => void;
   onSelectCategory: (category: string) => void;
   activeCategory: string;
@@ -29,14 +31,18 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   cms,
+  products = [],
+  onSelectProduct,
   onExplore,
   onSelectCategory,
   activeCategory,
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
+  // Default fallback curated slides
+  const defaultSlides = useMemo(() => [
     {
+      id: 'default-1',
       badge: 'Certified Pristine · Grade A+',
       productName: 'iPhone 15 Pro Max',
       title: 'Titanium Flagship',
@@ -50,8 +56,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       image: '/src/assets/images/refurbished_iphone_titanium_1790978131968.jpg',
       alt: 'Apple iPhone 15 Pro Max Natural Titanium',
       categoryTarget: 'iPhones',
+      productRef: undefined as Product | undefined,
     },
     {
+      id: 'default-2',
       badge: 'Ultrasound Inspected Silicon',
       productName: 'MacBook Pro 16" M3',
       title: 'Next-Gen Performance',
@@ -65,8 +73,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       image: '/src/assets/images/refurbished_macbook_pro_1790978142319.jpg',
       alt: 'Apple MacBook Pro M3 Space Black',
       categoryTarget: 'Laptops',
+      productRef: undefined as Product | undefined,
     },
     {
+      id: 'default-3',
       badge: 'Acoustic Lab Certified',
       productName: 'Sony WH-1000XM5',
       title: 'Noise Cancelling Flagship',
@@ -80,8 +90,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       image: '/src/assets/images/refurbished_sony_headphones_1790978152489.jpg',
       alt: 'Sony WH-1000XM5 Studio Headphones',
       categoryTarget: 'Accessories',
+      productRef: undefined as Product | undefined,
     },
     {
+      id: 'default-4',
       badge: 'Super Fast GaN Tech',
       productName: 'Revox 65W GaN Charger',
       title: 'Dual Port Compact Power',
@@ -95,11 +107,79 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       image: '/src/assets/images/refurbished_fast_charger_1790978184852.jpg',
       alt: 'Revox 65W GaN Fast Dual Port Charger',
       categoryTarget: 'Chargers',
+      productRef: undefined as Product | undefined,
     },
-  ];
+  ], []);
 
-  // Auto-slide every 5 seconds
+  // Compute dynamic slides from admin banner configuration
+  const slides = useMemo(() => {
+    const config = cms.dynamicBannerConfig;
+
+    // Check if dynamic banner is enabled, published, and has selected products
+    if (config && config.enabled && config.published && Array.isArray(config.productIds) && config.productIds.length > 0) {
+      const dynamicList = config.productIds
+        .map((pId) => products.find((p) => p.id === pId && !p.isDeleted))
+        .filter((p): p is Product => Boolean(p))
+        .map((prod) => {
+          // Generate key highlights for the product banner
+          const bullets: string[] = [];
+          if (prod.batteryHealth) {
+            bullets.push(`Battery Health: ${prod.batteryHealth}`);
+          }
+          if (prod.condition) {
+            bullets.push(prod.condition);
+          }
+          if (prod.warranty) {
+            bullets.push(prod.warranty);
+          }
+          if (bullets.length < 3 && prod.specs) {
+            const firstSpec = Object.entries(prod.specs)[0];
+            if (firstSpec) bullets.push(`${firstSpec[0]}: ${firstSpec[1]}`);
+          }
+          if (bullets.length < 3) {
+            bullets.push('100-Point Inspected & Certified');
+          }
+          if (bullets.length < 3) {
+            bullets.push('Fast 5–7 Days Delivery Across KSA');
+          }
+
+          const savings = prod.originalPrice && prod.originalPrice > prod.price
+            ? `Save ${(prod.originalPrice - prod.price).toLocaleString()} SAR`
+            : 'Certified Pristine';
+
+          return {
+            id: prod.id,
+            badge: prod.conditionGrade ? `Certified ${prod.conditionGrade}` : 'Certified Refurbished',
+            productName: prod.name,
+            title: prod.category ? `${prod.category} · ${savings}` : savings,
+            bullets: bullets.slice(0, 3),
+            price: `${prod.price.toLocaleString()} SAR`,
+            oldPrice: prod.originalPrice > prod.price ? `${prod.originalPrice.toLocaleString()} SAR` : '',
+            image: prod.image || (prod.galleryImages && prod.galleryImages[0]) || '/src/assets/images/refurbished_iphone_titanium_1790978131968.jpg',
+            alt: prod.name,
+            categoryTarget: prod.category || 'all',
+            productRef: prod,
+          };
+        });
+
+      if (dynamicList.length > 0) {
+        return dynamicList;
+      }
+    }
+
+    return defaultSlides;
+  }, [cms.dynamicBannerConfig, products, defaultSlides]);
+
+  // Reset slide index if slides length changes
   useEffect(() => {
+    if (currentSlide >= slides.length) {
+      setCurrentSlide(0);
+    }
+  }, [slides.length, currentSlide]);
+
+  // Auto-slide every 5 seconds (only when multiple slides exist)
+  useEffect(() => {
+    if (slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 5000);
@@ -132,25 +212,29 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Banner Slide Content - Compact & Slim Vertical Proportions */}
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 min-h-[220px] sm:min-h-[250px] md:min-h-[270px] flex items-center relative">
           
-          {/* Arrow Left */}
-          <button
-            type="button"
-            onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
-            className="absolute left-1.5 sm:left-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-700/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
-            aria-label="Previous Slide"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          {/* Arrow Left (Only when multiple slides exist) */}
+          {slides.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
+              className="absolute left-1.5 sm:left-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-700/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
+              aria-label="Previous Slide"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
 
-          {/* Arrow Right */}
-          <button
-            type="button"
-            onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-            className="absolute right-1.5 sm:right-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-700/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
-            aria-label="Next Slide"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {/* Arrow Right (Only when multiple slides exist) */}
+          {slides.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
+              className="absolute right-1.5 sm:right-3 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-700/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm"
+              aria-label="Next Slide"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Two-Column Side-by-Side Banner Content */}
           <div className="w-full grid grid-cols-12 gap-3 sm:gap-6 items-center px-6 sm:px-10">
@@ -204,8 +288,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    onSelectCategory(slide.categoryTarget);
-                    onExplore();
+                    if (slide.productRef && onSelectProduct) {
+                      onSelectProduct(slide.productRef);
+                    } else {
+                      onSelectCategory(slide.categoryTarget);
+                      onExplore();
+                    }
                   }}
                   className="px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#00F2FE] via-[#38BDF8] to-[#4FACFE] text-slate-950 font-black text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5 shadow-[0_3px_16px_rgba(0,242,254,0.4)] hover:shadow-[0_5px_24px_rgba(0,242,254,0.65)] hover:scale-[1.03] active:scale-95 cursor-pointer"
                 >
@@ -218,7 +306,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             {/* Right Side: Clean Product Image Graphic */}
             <div className="col-span-5 sm:col-span-5 md:col-span-4 flex items-center justify-center">
-              <div className="relative w-full max-w-[140px] sm:max-w-[200px] md:max-w-[240px] aspect-[4/3] rounded-xl overflow-hidden bg-slate-900/60 border border-slate-700/60 shadow-lg p-1.5 flex items-center justify-center group">
+              <div
+                onClick={() => {
+                  if (slide.productRef && onSelectProduct) {
+                    onSelectProduct(slide.productRef);
+                  } else {
+                    onSelectCategory(slide.categoryTarget);
+                    onExplore();
+                  }
+                }}
+                className="relative w-full max-w-[140px] sm:max-w-[200px] md:max-w-[240px] aspect-[4/3] rounded-xl overflow-hidden bg-slate-900/60 border border-slate-700/60 shadow-lg p-1.5 flex items-center justify-center group cursor-pointer"
+                title={`View ${slide.productName}`}
+              >
                 <img
                   src={slide.image}
                   alt={slide.alt}
@@ -235,19 +334,21 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
           </div>
 
-          {/* Dots Indicator */}
-          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentSlide(i)}
-                className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                  currentSlide === i ? 'w-5 bg-amber-400' : 'w-1.5 bg-slate-700 hover:bg-slate-500'
-                }`}
-                aria-label={`Slide ${i + 1}`}
-              />
-            ))}
-          </div>
+          {/* Dots Indicator (Hidden when only 1 product in banner) */}
+          {slides.length > 1 && (
+            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                    currentSlide === i ? 'w-5 bg-amber-400' : 'w-1.5 bg-slate-700 hover:bg-slate-500'
+                  }`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
 
         </div>
       </div>

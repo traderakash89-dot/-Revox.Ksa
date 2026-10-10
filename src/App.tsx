@@ -183,6 +183,8 @@ function RevoxAppContent() {
             {/* Hero Slider & Square Category Grid Layout */}
             <HeroSection
               cms={cms}
+              products={products}
+              onSelectProduct={(p) => setSelectedProduct(p)}
               onExplore={scrollToCatalog}
               onSelectCategory={(cat) => {
                 setSelectedCategory(cat);

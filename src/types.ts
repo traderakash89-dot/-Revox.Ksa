@@ -160,6 +160,13 @@ export interface CMSConfig {
     accountName: string;
     mobileNumber: string;
   };
+  // Dynamic Product Banner Configuration
+  dynamicBannerConfig?: {
+    enabled: boolean;          // Enable/Disable switch
+    published: boolean;        // Publish/Unpublish switch
+    productIds: string[];      // Array of selected product IDs in display order
+    autoplaySpeed?: number;    // e.g. 5000ms
+  };
 }
 
 export interface AdminUser {

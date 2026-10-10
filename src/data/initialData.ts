@@ -23,6 +23,12 @@ export const INITIAL_CMS: CMSConfig = {
     accountName: 'MD AKASH MIAH / Revox',
     mobileNumber: '0508520173',
   },
+  dynamicBannerConfig: {
+    enabled: true,
+    published: true,
+    productIds: [],
+    autoplaySpeed: 5000,
+  },
 };
 
 export const INITIAL_USERS: CustomerUser[] = [

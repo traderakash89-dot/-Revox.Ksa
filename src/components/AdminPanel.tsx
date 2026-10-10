@@ -15,6 +15,9 @@ import {
   Undo2,
   RotateCcw,
   AlertOctagon,
+  ArrowUp,
+  ArrowDown,
+  LayoutTemplate,
   Plus,
   Printer,
   X,
@@ -131,8 +134,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   });
 
-  // Tabs: 'orders' | 'products' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'>('orders');
+  // Tabs: 'orders' | 'products' | 'banners' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'banners' | 'trash' | 'tiktok_ads' | 'analytics' | 'cms'>('orders');
   const [isMenuDropdownOpen, setIsMenuDropdownOpen] = useState(false);
   const menuDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -218,6 +221,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // CMS Settings form state
   const [cmsForm, setCmsForm] = useState<CMSConfig>(cms);
   const [cmsSavedAlert, setCmsSavedAlert] = useState(false);
+
+  // Dynamic Product Banner state
+  const [bannerProductIds, setBannerProductIds] = useState<string[]>(() => {
+    return cms.dynamicBannerConfig?.productIds || [];
+  });
+  const [bannerEnabled, setBannerEnabled] = useState<boolean>(() => {
+    return cms.dynamicBannerConfig?.enabled ?? true;
+  });
+  const [bannerPublished, setBannerPublished] = useState<boolean>(() => {
+    return cms.dynamicBannerConfig?.published ?? true;
+  });
+  const [bannerProductSearch, setBannerProductSearch] = useState<string>('');
+  const [bannerCategoryFilter, setBannerCategoryFilter] = useState<string>('all');
+  const [bannerSavedMessage, setBannerSavedMessage] = useState<string>('');
+  const [bannerErrorMessage, setBannerErrorMessage] = useState<string>('');
+
+  // Keep banner state in sync if external cms prop updates
+  useEffect(() => {
+    if (cms.dynamicBannerConfig) {
+      setBannerProductIds(cms.dynamicBannerConfig.productIds || []);
+      setBannerEnabled(cms.dynamicBannerConfig.enabled ?? true);
+      setBannerPublished(cms.dynamicBannerConfig.published ?? true);
+    }
+  }, [cms.dynamicBannerConfig]);
+
+  // Handle saving the dynamic banner configuration
+  const handleSaveBannerConfig = () => {
+    setBannerSavedMessage('');
+    setBannerErrorMessage('');
+
+    try {
+      const updatedCms: CMSConfig = {
+        ...cms,
+        ...cmsForm,
+        dynamicBannerConfig: {
+          enabled: bannerEnabled,
+          published: bannerPublished,
+          productIds: bannerProductIds,
+          autoplaySpeed: 5000,
+        },
+      };
+
+      onUpdateCMS(updatedCms);
+      setCmsForm(updatedCms);
+      setBannerSavedMessage(
+        `Banner configuration saved successfully! (${bannerProductIds.length} product${bannerProductIds.length === 1 ? '' : 's'} ${bannerPublished ? 'published' : 'unpublished'})`
+      );
+      setTimeout(() => setBannerSavedMessage(''), 4500);
+    } catch (err: any) {
+      setBannerErrorMessage(err?.message || 'Failed to save banner configuration.');
+      setTimeout(() => setBannerErrorMessage(''), 4500);
+    }
+  };
 
   // Compute analytics
   const totalSales = orders.reduce((sum, o) => sum + o.total, 0);
@@ -333,6 +389,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       color: 'text-cyan-400',
       badgeBg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
       description: 'Catalog, stock counts, warranties & IMEI numbers',
+    },
+    {
+      id: 'banners' as const,
+      label: 'Product Banner Slider',
+      shortLabel: 'Banners',
+      icon: LayoutTemplate,
+      count: cms.dynamicBannerConfig?.productIds?.length || 0,
+      color: 'text-amber-400',
+      badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      description: 'Manage homepage banners using existing store products',
+      badge: cms.dynamicBannerConfig?.enabled ? (cms.dynamicBannerConfig?.published ? 'LIVE' : 'UNPUBLISHED') : 'OFF',
     },
     {
       id: 'trash' as const,
@@ -1609,6 +1676,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setActiveTab('banners')}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all relative"
+                  title="Configure homepage product banner slider"
+                >
+                  <LayoutTemplate className="w-4 h-4 text-amber-400" />
+                  <span>Banner Slider</span>
+                  {bannerProductIds.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                      {bannerProductIds.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveTab('trash')}
                   className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all relative"
                   title="View deleted products in Trash / Recycle Bin"
@@ -2373,6 +2455,456 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: DYNAMIC PRODUCT BANNER MANAGEMENT */}
+        {activeTab === 'banners' && (
+          <div className="space-y-6">
+            {/* Header & Main Controls */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#111723] p-4 sm:p-5 rounded-xl border border-amber-500/30 shadow-lg">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <LayoutTemplate className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-white font-['Poppins'] flex items-center gap-2">
+                      Dynamic Product Banner Management
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        {bannerProductIds.length} Selected
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Select 1, 2, 3, 4, 5, or any number of products from your live database. They will automatically slide and display in the homepage hero banner area.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Toggles & Save Button */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Enable/Disable Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setBannerEnabled(!bannerEnabled)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    bannerEnabled
+                      ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-300 shadow-sm'
+                      : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                  title="Enable or disable the dynamic banner system"
+                >
+                  <span className={`w-2 h-2 rounded-full ${bannerEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                  <span>{bannerEnabled ? 'Banner Enabled' : 'Banner Disabled'}</span>
+                </button>
+
+                {/* Publish/Unpublish Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setBannerPublished(!bannerPublished)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    bannerPublished
+                      ? 'bg-cyan-950/80 border-cyan-500/60 text-cyan-300 shadow-sm'
+                      : 'bg-amber-950/80 border-amber-600/60 text-amber-300'
+                  }`}
+                  title="Publish to public storefront or keep draft"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{bannerPublished ? 'Published Live' : 'Unpublished (Draft)'}</span>
+                </button>
+
+                {/* Save & Update Button */}
+                <button
+                  type="button"
+                  onClick={handleSaveBannerConfig}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Save & Publish Banner</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Success & Error Alert Messages */}
+            {bannerSavedMessage && (
+              <div className="p-3.5 bg-emerald-950/90 border border-emerald-500 rounded-xl text-xs text-emerald-200 flex items-center justify-between animate-in fade-in shadow-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">{bannerSavedMessage}</span>
+                </div>
+                <button onClick={() => setBannerSavedMessage('')} className="text-emerald-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {bannerErrorMessage && (
+              <div className="p-3.5 bg-red-950/90 border border-red-500 rounded-xl text-xs text-red-200 flex items-center justify-between animate-in fade-in shadow-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span className="font-semibold">{bannerErrorMessage}</span>
+                </div>
+                <button onClick={() => setBannerErrorMessage('')} className="text-red-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Split Layout: Selected Banner Products List (Left/Top) vs Store Product Selector (Right/Bottom) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+              {/* SECTION A: SELECTED PRODUCTS IN BANNER (Reorder, Remove, View) */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="bg-[#111723] border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2 font-['Poppins']">
+                        <LayoutTemplate className="w-4 h-4 text-amber-400" />
+                        <span>Active Banner Products</span>
+                        <span className="px-2 py-0.2 rounded-full text-[11px] font-mono bg-slate-800 text-amber-300 font-bold border border-slate-700">
+                          {bannerProductIds.length}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        These products appear in your homepage banner. Use the up/down arrows to adjust slide order.
+                      </p>
+                    </div>
+
+                    {bannerProductIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('Remove all products from the banner? This will revert to default fallback slides until you select new products.')) {
+                            setBannerProductIds([]);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-[11px] rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white font-semibold transition-colors cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  {/* List of Selected Banner Products */}
+                  {bannerProductIds.length === 0 ? (
+                    <div className="py-12 px-4 rounded-xl border border-dashed border-slate-800 text-center space-y-3 bg-[#0A0E18]">
+                      <div className="w-12 h-12 rounded-full bg-slate-800/60 border border-slate-700 flex items-center justify-center text-slate-500 mx-auto">
+                        <Sparkles className="w-6 h-6 text-amber-500/60" />
+                      </div>
+                      <h5 className="text-xs font-bold text-slate-300">No Products Selected For Banner</h5>
+                      <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                        Select one or more products from the right list. If no products are selected, the store uses the certified default banner items.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                      {bannerProductIds.map((pId, index) => {
+                        const product = activeProducts.find((p) => p.id === pId);
+                        if (!product) {
+                          return (
+                            <div
+                              key={pId}
+                              className="p-3 rounded-xl bg-slate-900/60 border border-red-900/40 flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-2 text-slate-400">
+                                <AlertTriangle className="w-4 h-4 text-red-400" />
+                                <span className="font-mono text-xs">Deleted / Inactive Item (ID: {pId})</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setBannerProductIds((prev) => prev.filter((id) => id !== pId))}
+                                className="text-red-400 hover:text-red-300 p-1"
+                                title="Remove deleted item from banner"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={product.id}
+                            className="p-3 rounded-xl bg-[#090D14] border border-slate-800 hover:border-amber-500/40 transition-all flex items-center justify-between gap-3 group"
+                          >
+                            {/* Slide Number & Thumbnail */}
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                                #{index + 1}
+                              </span>
+
+                              <div className="w-12 h-12 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                                {product.image ? (
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <ImageIcon className="w-5 h-5 text-slate-600" />
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-white text-xs truncate font-['Poppins']">
+                                  {product.name}
+                                </h5>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                  <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-semibold border border-slate-700">
+                                    {product.category}
+                                  </span>
+                                  <span className="font-mono font-bold text-amber-400">
+                                    {product.price.toLocaleString()} SAR
+                                  </span>
+                                  {product.originalPrice > product.price && (
+                                    <span className="line-through text-slate-500 font-mono text-[9px]">
+                                      {product.originalPrice.toLocaleString()} SAR
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Reorder and Delete Actions */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {/* Move Up */}
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => {
+                                  if (index === 0) return;
+                                  setBannerProductIds((prev) => {
+                                    const copy = [...prev];
+                                    const temp = copy[index - 1];
+                                    copy[index - 1] = copy[index];
+                                    copy[index] = temp;
+                                    return copy;
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                title="Move Earlier in Slider"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Move Down */}
+                              <button
+                                type="button"
+                                disabled={index === bannerProductIds.length - 1}
+                                onClick={() => {
+                                  if (index === bannerProductIds.length - 1) return;
+                                  setBannerProductIds((prev) => {
+                                    const copy = [...prev];
+                                    const temp = copy[index + 1];
+                                    copy[index + 1] = copy[index];
+                                    copy[index] = temp;
+                                    return copy;
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                title="Move Later in Slider"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Remove from Banner */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBannerProductIds((prev) => prev.filter((id) => id !== product.id));
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-900/60 text-slate-400 hover:text-red-300 transition-colors cursor-pointer ml-1"
+                                title="Remove from Banner"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Banner Preview Info Callout */}
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Live Banner Behavior Rules</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      • <strong>1 Product Selected:</strong> Displays prominently as a dedicated single hero showcase.
+                      <br />
+                      • <strong>Multiple Products Selected:</strong> Automatically formats into an auto-sliding carousel with next/prev arrows and indicator dots.
+                      <br />
+                      • <strong>Direct Click:</strong> Clicking "Shop Now" or the banner slide opens the product's detail modal immediately.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION B: PRODUCT SELECTOR FROM EXISTING STORE DATABASE */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="bg-[#111723] border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2 font-['Poppins']">
+                      <Package className="w-4 h-4 text-cyan-400" />
+                      <span>Select Products from Store Database</span>
+                      <span className="px-2 py-0.2 rounded-full text-[11px] font-mono bg-slate-800 text-cyan-300 font-bold border border-slate-700">
+                        {activeProducts.length} Available
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Search and click products below to add or remove them from the homepage banner.
+                    </p>
+                  </div>
+
+                  {/* Search and Category Filter Toolbar */}
+                  <div className="space-y-2.5">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={bannerProductSearch}
+                        onChange={(e) => setBannerProductSearch(e.target.value)}
+                        placeholder="Search product by name, ID, category, or SKU..."
+                        className="w-full bg-[#090D14] border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                      />
+                      {bannerProductSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setBannerProductSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
+                      {['all', 'Mobiles', 'iPhones', 'Laptops', 'Samsung', 'Cameras', 'Chargers', 'Accessories', 'Audio'].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setBannerCategoryFilter(cat)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                            bannerCategoryFilter === cat
+                              ? 'bg-cyan-500 text-slate-950 font-bold'
+                              : 'bg-[#090D14] text-slate-400 hover:text-white border border-slate-800'
+                          }`}
+                        >
+                          {cat === 'all' ? 'All Tech' : cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Available Products List */}
+                  <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                    {activeProducts
+                      .filter((p) => {
+                        const matchCat =
+                          bannerCategoryFilter === 'all' ||
+                          p.category.toLowerCase() === bannerCategoryFilter.toLowerCase() ||
+                          (bannerCategoryFilter === 'Mobiles' &&
+                            (p.category === 'iPhones' || p.category === 'Samsung' || p.category === 'Mobiles'));
+
+                        const q = bannerProductSearch.toLowerCase().trim();
+                        const matchQ =
+                          !q ||
+                          p.name.toLowerCase().includes(q) ||
+                          p.id.toLowerCase().includes(q) ||
+                          p.category.toLowerCase().includes(q) ||
+                          (p.sku && p.sku.toLowerCase().includes(q)) ||
+                          (p.serialNumber && p.serialNumber.toLowerCase().includes(q));
+
+                        return matchCat && matchQ;
+                      })
+                      .map((p) => {
+                        const isSelected = bannerProductIds.includes(p.id);
+
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setBannerProductIds((prev) => prev.filter((id) => id !== p.id));
+                              } else {
+                                setBannerProductIds((prev) => [...prev, p.id]);
+                              }
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-amber-500/10 border-amber-500/50 shadow-xs'
+                                : 'bg-[#090D14] hover:bg-slate-800/40 border-slate-800 text-slate-300 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
+                                  isSelected
+                                    ? 'bg-amber-500 border-amber-400 text-slate-950 font-bold'
+                                    : 'bg-slate-900 border-slate-700 text-transparent'
+                                }`}
+                              >
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </div>
+
+                              <div className="w-11 h-11 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+                                {p.image ? (
+                                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <ImageIcon className="w-4 h-4 text-slate-600" />
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <h5 className={`font-bold text-xs truncate ${isSelected ? 'text-amber-200' : 'text-white'}`}>
+                                  {p.name}
+                                </h5>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                  <span className="font-mono text-slate-500">ID: {p.id}</span>
+                                  <span>·</span>
+                                  <span className="font-semibold text-slate-300">{p.category}</span>
+                                  <span>·</span>
+                                  <span className="font-mono text-amber-400 font-bold">{p.price.toLocaleString()} SAR</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isSelected) {
+                                  setBannerProductIds((prev) => prev.filter((id) => id !== p.id));
+                                } else {
+                                  setBannerProductIds((prev) => [...prev, p.id]);
+                                }
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-slate-950'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700'
+                              }`}
+                            >
+                              {isSelected ? 'Selected' : '+ Add'}
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                    {activeProducts.length === 0 && (
+                      <div className="py-8 text-center text-xs text-slate-500">
+                        No active products found in inventory. Add products to your store first.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         )}

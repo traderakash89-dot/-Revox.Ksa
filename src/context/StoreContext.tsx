@@ -100,6 +100,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...parsed,
           storeAddress: parsed.storeAddress || INITIAL_CMS.storeAddress,
           tiktokUrl: parsed.tiktokUrl || INITIAL_CMS.tiktokUrl,
+          dynamicBannerConfig: parsed.dynamicBannerConfig || INITIAL_CMS.dynamicBannerConfig,
         };
       }
       return INITIAL_CMS;
@@ -202,6 +203,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         });
 
+        eventSource.addEventListener('cms_updated', (event: any) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.cms) {
+              setCms(payload.cms);
+              try {
+                localStorage.setItem('revox_cms', JSON.stringify(payload.cms));
+              } catch {}
+            }
+          } catch (err) {
+            console.error('cms_updated event parse error:', err);
+          }
+        });
+
         eventSource.addEventListener('init', (event: any) => {
           try {
             const payload = JSON.parse(event.data);
@@ -211,6 +226,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 localStorage.setItem('revox_products', JSON.stringify(payload.products));
               } catch {}
               setIsProductsLoading(false);
+            }
+            if (payload && payload.cms) {
+              setCms(payload.cms);
+              try {
+                localStorage.setItem('revox_cms', JSON.stringify(payload.cms));
+              } catch {}
             }
           } catch (err) {
             console.error('init event parse error:', err);
